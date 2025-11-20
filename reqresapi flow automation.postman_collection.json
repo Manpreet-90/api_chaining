@@ -1,0 +1,405 @@
+{
+	"info": {
+		"_postman_id": "885af418-77fc-46c6-90dc-7794b3613b3e",
+		"name": "reqresapi flow automation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "47140907",
+		"_collection_link": "https://way2manpreet90-1133041.postman.co/workspace/Manpreet's-Workspace~48c3a881-69e0-43dd-844d-2a9d21985a7a/collection/47140907-885af418-77fc-46c6-90dc-7794b3613b3e?action=share&source=collection_link&creator=47140907"
+	},
+	"item": [
+		{
+			"name": "api flow",
+			"item": [
+				{
+					"name": "Login(extract token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Parse JSON safely, handle HTML or non-JSON responses, and save token to env if present",
+									"(function () {",
+									"  pm.test(\"Response received\", function () {",
+									"    pm.expect(pm.response).to.be.ok;",
+									"  });",
+									"",
+									"  const contentType = pm.response.headers.get(\"Content-Type\") || \"\";",
+									"  const isJson = contentType.toLowerCase().includes(\"application/json\");",
+									"",
+									"  let data = null;",
+									"  let parseError = null;",
+									"",
+									"  if (isJson) {",
+									"    try {",
+									"      data = pm.response.json();",
+									"      pm.test(\"Response is valid JSON\", function () {",
+									"        pm.expect(data).to.be.an(\"object\");",
+									"      });",
+									"      console.log(\"Parsed JSON response:\", data);",
+									"    } catch (e) {",
+									"      parseError = e;",
+									"      console.warn(\"Failed to parse JSON response despite JSON Content-Type:\", e && e.message);",
+									"    }",
+									"  } else {",
+									"    // Guard: response is not JSON (often HTML); don't attempt pm.response.json()",
+									"    console.info(\"Response Content-Type is not JSON:\", contentType);",
+									"  }",
+									"",
+									"  // Try to extract token only if data is an object and token exists",
+									"  let token = null;",
+									"  if (data && typeof data === \"object\" && data.token) {",
+									"    token = String(data.token);",
+									"    pm.environment.set(\"token\", token);",
+									"    console.log(\"Token extracted and saved to active environment variable 'token'.\");",
+									"  } else {",
+									"    // Clear token only if you want to avoid using stale tokens; comment out if undesired",
+									"    // pm.environment.unset(\"token\");",
+									"    if (!isJson) {",
+									"      console.info(\"Token not extracted because response was not JSON (likely HTML page).\" );",
+									"    } else if (parseError) {",
+									"      console.info(\"Token not extracted because JSON parsing failed.\");",
+									"    } else {",
+									"      console.info(\"Token field was not present in JSON response.\");",
+									"    }",
+									"  }",
+									"",
+									"  // Assertion that the response contains a token when JSON body has it",
+									"  pm.test(\"Response contains a token field (when applicable)\", function () {",
+									"    // Do not fail the entire script for HTML/non-JSON or parse errors; assert only when we have JSON",
+									"    if (data && typeof data === \"object\") {",
+									"      pm.expect(data).to.have.property(\"token\");",
+									"    } else {",
+									"      pm.expect(true).to.be.true; // Graceful no-op for non-JSON",
+									"    }",
+									"  });",
+									"",
+									"})();"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Set current time in environment variable 'current_time' as mm-dd-yyyy HH:mm:ss",
+									"(function () {",
+									"  const now = new Date();",
+									"  const pad2 = (n) => String(n).padStart(2, '0');",
+									"",
+									"  const mm = pad2(now.getMonth() + 1);",
+									"  const dd = pad2(now.getDate());",
+									"  const yyyy = now.getFullYear();",
+									"  const HH = pad2(now.getHours());",
+									"  const MM = pad2(now.getMinutes());",
+									"  const SS = pad2(now.getSeconds());",
+									"",
+									"  const formatted = `${mm}-${dd}-${yyyy} ${HH}:${MM}:${SS}`;",
+									"  pm.environment.set('current_time', formatted);",
+									"})();"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "reqres-free-v1",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"eve.holt@reqres.in\",\r\n    \"password\": \"cityslicka\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}api/login",
+							"host": [
+								"{{base_url}}api"
+							],
+							"path": [
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create new user with token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Robust post-response script: safely parse JSON, assert basics, extract and store user id",
+									"(function () {",
+									"  pm.test(\"Status code is 201\", function () {",
+									"    pm.expect(pm.response.code).to.eql(201);",
+									"  });",
+									"",
+									"  const contentType = (pm.response.headers.get(\"Content-Type\") || \"\").toLowerCase();",
+									"  const isJson = contentType.includes(\"application/json\");",
+									"",
+									"  let data = null;",
+									"  let parseError = null;",
+									"",
+									"  if (isJson) {",
+									"    try {",
+									"      data = pm.response.json();",
+									"      pm.test(\"Response is valid JSON\", function () {",
+									"        pm.expect(data).to.be.an(\"object\");",
+									"      });",
+									"    } catch (e) {",
+									"      parseError = e;",
+									"      console.warn(\"Failed to parse JSON despite JSON Content-Type:\", e && e.message);",
+									"    }",
+									"  } else {",
+									"    console.info(\"Response Content-Type is not JSON:\", contentType);",
+									"  }",
+									"",
+									"  // Extract and save id if present",
+									"  let id = null;",
+									"  if (data && typeof data === \"object\" && Object.prototype.hasOwnProperty.call(data, \"id\")) {",
+									"    id = String(data.id);",
+									"    pm.environment.set(\"userid\", id);",
+									"    console.log(\"Saved environment variable 'userid':\", id);",
+									"  }",
+									"",
+									"  // Assertions around id presence and type when JSON body is available",
+									"  pm.test(\"Response JSON contains an id string\", function () {",
+									"    if (data && typeof data === \"object\") {",
+									"      pm.expect(data).to.have.property(\"id\");",
+									"      pm.expect(String(data.id)).to.be.a(\"string\").and.not.empty;",
+									"    } else {",
+									"      // If we couldn't parse JSON, fail explicitly to surface the issue",
+									"      pm.expect.fail(\"Response body was not parsed as JSON, cannot verify 'id'.\");",
+									"    }",
+									"  });",
+									"})();"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "reqres-free-v1",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"morpheus\",\r\n    \"job\": \"leader\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}api/users",
+							"host": [
+								"{{base_url}}api"
+							],
+							"path": [
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update user wit userid extract from last response",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "reqres-free-v1",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"morpheusnlkn\",\r\n    \"job\": \"zion resident\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}api/users/{{userid}}",
+							"host": [
+								"{{base_url}}api"
+							],
+							"path": [
+								"users",
+								"{{userid}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 204\", function () {\r",
+									"    pm.response.to.have.status(204);\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "reqres-free-v1",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"morpheusnlkn\",\r\n    \"job\": \"zion resident\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}api/users/{{userid}}",
+							"host": [
+								"{{base_url}}api"
+							],
+							"path": [
+								"users",
+								"{{userid}}"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{token}}",
+						"type": "string"
+					}
+				]
+			},
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
